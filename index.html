@@ -773,7 +773,6 @@ function parsePedigree(bytes) {
       offset += entrySize;
     }
 
-    console.log(`[pedigree] start=${start}: ${valid} entries, ${nMap.size} nodes, ${lArr.length} links`);
     if (nMap.size > bestResult.nodes.size) bestResult = { nodes: nMap, links: lArr };
   }
 
