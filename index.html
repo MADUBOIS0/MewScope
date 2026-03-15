@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mewscope</title>
+<link href="https://fonts.googleapis.com/css2?family=Sour+Gummy:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --color-paper:  #f2efea;
+    --color-card:   #f8f6f2;
+    --color-border-light: #c8c4bc;
+    --color-muted:  #8a8780;
+    --color-body:   #3d3a35;
+    --color-ink:    #1a1714;
+    --color-gold:   #c8a840;
+    --color-red:    #b83030;
+    --color-green:  #3a8040;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Sour Gummy', sans-serif;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    min-height: 100vh;
+  }
+
+  /* ── HERO ── */
+  #hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    gap: 1.5rem;
+  }
+
+  #hero img.logo { width: 96px; height: 96px; }
+
+  #hero h1 {
+    font-size: 3rem;
+    font-weight: 900;
+    letter-spacing: -1px;
+  }
+
+  #hero p.subtitle {
+    font-size: 1rem;
+    font-weight: 400;
+    color: var(--color-body);
+    text-align: center;
+    max-width: 420px;
+  }
+
+  #drop-zone {
+    width: 100%;
+    max-width: 460px;
+    border: 3px dashed var(--color-border-light);
+    border-radius: 12px;
+    background: var(--color-paper);
+    padding: 3rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.12s, background 0.12s;
+  }
+
+  #drop-zone:hover,
+  #drop-zone.drag-over {
+    border-color: var(--color-ink);
+    border-style: solid;
+    background: var(--color-card);
+  }
+
+  #drop-zone .drop-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+
+  #drop-zone p { font-weight: 700; font-size: 1rem; }
+
+  #drop-zone p.hint {
+    font-weight: 400;
+    font-size: 0.75rem;
+    color: var(--color-muted);
+    margin-top: 0.4rem;
+  }
+
+  #file-input { display: none; }
+
+  .path-hint {
+    font-size: 0.72rem;
+    color: var(--color-muted);
+    font-weight: 400;
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  #load-error {
+    color: var(--color-red);
+    font-weight: 700;
+    font-size: 0.9rem;
+    display: none;
+  }
+
+  /* ── MAIN APP ── */
+  #app { display: none; padding: 0 1.5rem 4rem; max-width: 1200px; margin: 0 auto; }
+
+  /* Stats Bar */
+  #stats-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    padding: 1.2rem 0;
+    border-bottom: 2px solid var(--color-border-light);
+    margin-bottom: 2rem;
+  }
+
+  .stat-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    border: 2px solid var(--color-ink);
+    border-radius: 999px;
+    padding: 0.3rem 0.8rem;
+    font-size: 0.85rem;
+    background: var(--color-card);
+    box-shadow: 2px 2px 0 var(--color-ink);
+  }
+
+  .stat-chip .label {
+    font-weight: 600;
+    color: var(--color-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .stat-chip .value { font-weight: 800; }
+  .stat-chip .value.gold { color: var(--color-gold); }
+  .stat-chip .value.red  { color: var(--color-red); }
+  .stat-chip .value.green{ color: var(--color-green); }
+
+  /* Section headers */
+  .section-title {
+    font-size: 1.75rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+  }
+
+  /* Dashboard grid */
+  #dashboard {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    margin-bottom: 2.5rem;
+  }
+
+  @media (max-width: 700px) { #dashboard { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--color-card);
+    border: 3px solid var(--color-ink);
+    border-radius: 10px;
+    box-shadow: 4px 4px 0 var(--color-ink);
+    padding: 14px 16px;
+  }
+
+  .card-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--color-border-light);
+  }
+
+  /* Zone chips */
+  #zones-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  .zone-chip {
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+    border: 2px solid var(--color-ink);
+  }
+
+  .zone-chip.unlocked { background: var(--color-ink); color: var(--color-paper); }
+  .zone-chip.locked   { background: transparent; color: var(--color-muted); border-color: var(--color-border-light); }
+
+  /* Inventory tags */
+  #storage-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    font-size: 0.78rem;
+  }
+
+  .item-tag {
+    background: var(--color-paper);
+    border: 1.5px solid var(--color-border-light);
+    border-radius: 6px;
+    padding: 0.15rem 0.5rem;
+    font-weight: 600;
+    color: var(--color-body);
+  }
+
+  /* Bar chart */
+  .bar-chart { width: 100%; }
+
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.45rem;
+    font-size: 0.8rem;
+  }
+
+  .bar-label { width: 72px; font-weight: 700; text-align: right; flex-shrink: 0; }
+
+  .bar-track {
+    flex: 1;
+    background: var(--color-paper);
+    border: 1.5px solid var(--color-border-light);
+    border-radius: 4px;
+    height: 18px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    background: var(--color-ink);
+    border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+
+  .bar-count { width: 32px; font-weight: 600; color: var(--color-body); }
+
+  /* ── CAT BROWSER ── */
+  #cat-browser { margin-bottom: 2.5rem; }
+
+  .filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+    align-items: center;
+  }
+
+  .filter-row input,
+  .filter-row select {
+    font-family: 'Sour Gummy', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: var(--color-card);
+    border: 2px solid var(--color-ink);
+    border-radius: 8px;
+    padding: 0.4rem 0.7rem;
+    box-shadow: 2px 2px 0 var(--color-ink);
+    color: var(--color-ink);
+    outline: none;
+  }
+
+  .filter-row input { flex: 1; min-width: 160px; }
+
+  .btn-toggle {
+    font-family: 'Sour Gummy', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    background: var(--color-card);
+    border: 2px solid var(--color-ink);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    box-shadow: 2px 2px 0 var(--color-ink);
+    cursor: pointer;
+    transition: transform 0.08s, box-shadow 0.08s;
+    color: var(--color-ink);
+  }
+
+  .btn-toggle:hover    { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--color-ink); }
+  .btn-toggle.active   { background: var(--color-ink); color: var(--color-paper); }
+
+  .table-wrap { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+
+  thead tr {
+    background: var(--color-ink);
+    color: var(--color-paper);
+  }
+
+  thead th {
+    padding: 0.6rem 0.75rem;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  thead th:hover { background: #2e2a26; }
+  thead th.sort-asc::after  { content: ' ▲'; font-size: 0.65rem; }
+  thead th.sort-desc::after { content: ' ▼'; font-size: 0.65rem; }
+
+  tbody tr:nth-child(even) { background: var(--color-paper); }
+  tbody tr:nth-child(odd)  { background: var(--color-card); }
+  tbody tr:hover { background: #e8e4dc; cursor: pointer; }
+
+  tbody td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--color-border-light);
+    color: var(--color-body);
+  }
+
+  td.key-col  { color: var(--color-muted); font-size: 0.75rem; font-weight: 600; }
+  td.name-col { font-weight: 700; color: var(--color-ink); }
+  td.hp-col   { font-weight: 700; }
+  td.hp-low   { color: var(--color-red); }
+  td.hp-high  { color: var(--color-green); }
+
+  .class-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 0.1rem 0.45rem;
+    border-radius: 4px;
+    border: 1.5px solid var(--color-ink);
+    background: var(--color-ink);
+    color: var(--color-paper);
+    white-space: nowrap;
+  }
+
+  .class-badge.colorless {
+    background: transparent;
+    color: var(--color-muted);
+    border-color: var(--color-border-light);
+  }
+
+  /* Expanded row */
+  tr.expanded-row td {
+    background: #ede9e2;
+    padding: 0.75rem 1rem;
+  }
+
+  .abilities-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-top: 0.35rem;
+  }
+
+  .ability-tag {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.15rem 0.5rem;
+    border-radius: 5px;
+    background: var(--color-card);
+    border: 1.5px solid var(--color-ink);
+    color: var(--color-ink);
+  }
+
+  /* Pagination */
+  .pagination {
+    display: flex;
+    gap: 0.4rem;
+    justify-content: center;
+    align-items: center;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .page-btn {
+    font-family: 'Sour Gummy', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 0.3rem 0.65rem;
+    background: var(--color-card);
+    border: 2px solid var(--color-ink);
+    border-radius: 6px;
+    box-shadow: 2px 2px 0 var(--color-ink);
+    cursor: pointer;
+    color: var(--color-ink);
+    transition: transform 0.08s, box-shadow 0.08s;
+  }
+
+  .page-btn:hover    { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--color-ink); }
+  .page-btn.active   { background: var(--color-ink); color: var(--color-paper); }
+  .page-btn:disabled { opacity: 0.4; cursor: default; transform: none; box-shadow: 2px 2px 0 var(--color-ink); }
+
+  /* ── PEDIGREE ── */
+  #pedigree { margin-bottom: 2.5rem; }
+
+  #pedigree-svg-wrap {
+    width: 100%;
+    height: 560px;
+    background: var(--color-card);
+    border: 3px solid var(--color-ink);
+    border-radius: 10px;
+    box-shadow: 4px 4px 0 var(--color-ink);
+    overflow: hidden;
+    position: relative;
+  }
+
+  #pedigree-svg { width: 100%; height: 100%; }
+
+  .ped-node circle {
+    fill: var(--color-card);
+    stroke: var(--color-ink);
+    stroke-width: 2.5;
+    cursor: pointer;
+    transition: stroke-width 0.1s;
+  }
+
+  .ped-node.selected circle {
+    stroke-width: 4;
+    fill: var(--color-ink);
+  }
+
+  .ped-node text {
+    font-family: 'Sour Gummy', sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    fill: var(--color-ink);
+    pointer-events: none;
+    text-anchor: middle;
+    dominant-baseline: central;
+  }
+
+  .ped-node.selected text { fill: var(--color-paper); }
+
+  .ped-link {
+    stroke: var(--color-border-light);
+    stroke-width: 1.5;
+    fill: none;
+  }
+
+  /* Floating detail card */
+  #ped-detail {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 220px;
+    background: var(--color-card);
+    border: 3px solid var(--color-ink);
+    border-radius: 10px;
+    box-shadow: 4px 4px 0 var(--color-ink);
+    padding: 12px 14px;
+    display: none;
+    font-size: 0.82rem;
+  }
+
+  #ped-detail .ped-name { font-size: 1rem; font-weight: 800; margin-bottom: 0.5rem; }
+  #ped-detail .ped-row  { display: flex; justify-content: space-between; margin-bottom: 0.2rem; }
+  #ped-detail .ped-row .pk { font-weight: 600; color: var(--color-muted); }
+  #ped-detail .ped-row .pv { font-weight: 700; }
+  #ped-detail .close-btn {
+    position: absolute; top: 8px; right: 10px;
+    cursor: pointer; font-size: 1rem; color: var(--color-muted);
+    background: none; border: none; font-family: inherit;
+  }
+
+  /* ── LOADING OVERLAY ── */
+  #loading {
+    position: fixed; inset: 0;
+    background: rgba(242,239,234,0.88);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    z-index: 100;
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+
+  .spinner {
+    width: 40px; height: 40px;
+    border: 4px solid var(--color-border-light);
+    border-top-color: var(--color-ink);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="loading"><div class="spinner"></div><span id="loading-msg">Loading…</span></div>
+
+<!-- Hero / Upload -->
+<section id="hero">
+  <img src="mewscope-icon.svg" class="logo" alt="">
+  <h1>Mewscope</h1>
+  <p class="subtitle">A browser-based save file viewer for Mewgenics. Your save file never leaves your machine.</p>
+
+  <div id="drop-zone" role="button" tabindex="0" aria-label="Upload save file">
+    <div class="drop-icon">🐾</div>
+    <p>Drop your <strong>.sav</strong> file here</p>
+    <p class="hint">or click to browse</p>
+  </div>
+  <input type="file" id="file-input" accept=".sav">
+
+  <div class="path-hint">
+    Save files are located at:<br>
+    <code>%APPDATA%\Glaiel Games\Mewgenics\&lt;steamid&gt;\saves\</code><br>
+    <em>steamcampaign01.sav, steamcampaign02.sav, …</em>
+  </div>
+
+  <div id="load-error"></div>
+</section>
+
+<!-- Main app (hidden until file loaded) -->
+<div id="app">
+
+  <!-- Stats bar -->
+  <div id="stats-bar"></div>
+
+  <!-- Dashboard -->
+  <section id="dashboard-section">
+    <h2 class="section-title">Dashboard</h2>
+    <div id="dashboard">
+      <div class="card" id="card-zones">
+        <div class="card-title">Unlocked Zones</div>
+        <div id="zones-grid"></div>
+      </div>
+      <div class="card" id="card-roster">
+        <div class="card-title">Cat Roster</div>
+        <div id="roster-stats"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Class Distribution</div>
+        <div id="class-chart" class="bar-chart"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">HP Distribution</div>
+        <div id="hp-chart" class="bar-chart"></div>
+      </div>
+    </div>
+    <!-- Storage card spans full width -->
+    <div class="card" style="margin-bottom:1.25rem;">
+      <div class="card-title">Storage Inventory</div>
+      <div id="storage-list"></div>
+    </div>
+  </section>
+
+  <!-- Cat Browser -->
+  <section id="cat-browser">
+    <h2 class="section-title">Cat Browser</h2>
+    <div class="filter-row">
+      <input type="text" id="search-input" placeholder="Search by name…">
+      <select id="filter-class">
+        <option value="">All Classes</option>
+      </select>
+      <select id="filter-gender">
+        <option value="">All Genders</option>
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+      </select>
+      <button class="btn-toggle" id="toggle-colorless">Colorless Only</button>
+      <button class="btn-toggle" id="toggle-classed">Classed Only</button>
+    </div>
+    <div class="table-wrap">
+      <table id="cat-table">
+        <thead>
+          <tr>
+            <th data-col="key">#</th>
+            <th data-col="name">Name</th>
+            <th data-col="gender">Gender</th>
+            <th data-col="class">Class</th>
+            <th data-col="hp">HP</th>
+            <th data-col="xp">XP</th>
+            <th data-col="focus">Focus</th>
+            <th data-col="status">Status</th>
+          </tr>
+        </thead>
+        <tbody id="cat-tbody"></tbody>
+      </table>
+    </div>
+    <div class="pagination" id="pagination"></div>
+  </section>
+
+  <!-- Pedigree -->
+  <section id="pedigree">
+    <h2 class="section-title">Pedigree Tree</h2>
+    <div id="pedigree-svg-wrap">
+      <svg id="pedigree-svg"></svg>
+      <div id="ped-detail">
+        <button class="close-btn" id="ped-close">✕</button>
+        <div class="ped-name" id="pd-name"></div>
+        <div class="ped-row"><span class="pk">Class</span><span class="pv" id="pd-class"></span></div>
+        <div class="ped-row"><span class="pk">HP</span><span class="pv" id="pd-hp"></span></div>
+        <div class="ped-row"><span class="pk">XP</span><span class="pv" id="pd-xp"></span></div>
+        <div class="ped-row"><span class="pk">Gender</span><span class="pv" id="pd-gender"></span></div>
+        <div class="ped-row"><span class="pk">Focus</span><span class="pv" id="pd-focus"></span></div>
+        <div style="margin-top:0.5rem;font-weight:600;color:var(--color-muted);font-size:0.75rem;">Abilities</div>
+        <div class="abilities-list" id="pd-abilities"></div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- sql.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/sql-wasm.js"></script>
+<!-- D3 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════
+
+const ZONES = ['Sewers','Caves','Junkyard','Boneyard','Desert','Bunker','Crater','MeatWorld'];
+
+const CLASS_PATTERNS = [
+  [/BasicMelee_Fighter/,  'Fighter'],
+  [/BasicRanged_Hunter/,  'Hunter'],
+  [/BasicTankMelee/,      'Tank'],
+  [/BasicMagicShortRanged/,'Mage'],
+  [/BasicMed/,            'Medic'],
+  [/BasicStraightShot_Thief/,'Thief'],
+  [/BasicShortRanged/,    'Ranged'],
+  [/BasicRanged/,         'Ranged'],
+  [/BasicShortLobbed/,    'Lobbed'],
+  [/BasicMelee/,          'Melee'],
+];
+
+const ABILITY_TOKENS = [
+  'DefaultMove','DSpit','DHunt','LickHeal','SoulReap','SelfAssured','HotBlooded',
+  'FurySwipes','KillsHeal','NaturalHealer','HeavyHanded','ProtectiveAura',
+  'LootHoarder','BloodFrenzy','Kamikaze','HardHead','Confront','TeamSpin',
+  'PlayDead','WindSlash','MageTeleport','PawMissile','Dash','TeamFlex',
+  'GymMembership','DrawAttention','Gore','FollowUp','HealBolt','HallowedGround',
+  'BuddyUp','Dart','FleaShot','Picnic','TakeAim','TowerDefense','Metabolize',
+  'Roll','Sunburn','LotterySh','Copycat','SpawnBaitTrap','LineShot','Distract',
+  'Pierce','LeatherArmor','Ankh','Revive','RallyCharge','SubwayRide','ThrowShield',
+  'Push','Contort','BellyFlop','MiniHook','Brainstorm','DollUp','GainThorns',
+  'Inspire','Jolt','LearnFromMistakes','HolyMantle','MamaLeech','BearTraps',
+  'CPR','Rockin','Worms','Purr','Meow','Bolt','Warp','LightningPaws','Shift',
+  'Exert','PunchFace','Depression'
+];
+
+const FOCUS_MAP = {
+  pcha:'Priority CHA', pdex:'Priority DEX', pint:'Priority INT',
+  pspd:'Priority SPD', vcon:'Vuln CON', vdex:'Vuln DEX',
+  vint:'Vuln INT',  vlck:'Vuln LCK'
+};
+
+const PAGE_SIZE = 50;
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+
+let allCats = [];
+let filteredCats = [];
+let sortCol = 'key';
+let sortDir = 1;
+let currentPage = 1;
+let expandedKey = null;
+let pedNodes = [];
+let pedLinks = [];
+
+// ═══════════════════════════════════════════════
+// BINARY PARSING
+// ═══════════════════════════════════════════════
+
+function parseCat(key, bytes) {
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const hp = dv.getUint32(0, true);
+  const xp = dv.getUint32(4, true);
+
+  const nameLen = bytes[17];
+  const start = (bytes.length > 22 && bytes[22] >= 32 && bytes[22] < 127) ? 22 : 23;
+  let name = '';
+  for (let i = 0; i < nameLen; i++) {
+    const p = start + i * 2;
+    if (p < bytes.length && bytes[p] >= 32 && bytes[p] < 127) name += String.fromCharCode(bytes[p]);
+  }
+
+  // Gender / sprite — scan entire blob
+  const str = new TextDecoder('latin1').decode(bytes);
+  const gm = str.match(/(female|male)(\d+)/);
+  const gender = gm ? gm[1] : '';
+  const spriteId = gm ? parseInt(gm[2]) : 0;
+
+  // Colorless
+  const colorless = str.includes('Colorless');
+
+  // Class
+  let catClass = '';
+  for (const [pat, cls] of CLASS_PATTERNS) {
+    if (pat.test(str)) { catClass = cls; break; }
+  }
+
+  // Status
+  let status = 'none';
+  if (str.includes('burned')) status = 'burned';
+
+  // Stat focus — look within ~80 bytes after gender match
+  let focus = '';
+  const genderIdx = gm ? str.indexOf(gm[0]) : -1;
+  const window = genderIdx >= 0 ? str.slice(genderIdx, genderIdx + 80) : str;
+  for (const tok of Object.keys(FOCUS_MAP)) {
+    if (window.includes(tok)) { focus = tok; break; }
+  }
+
+  // Abilities
+  const abilities = ABILITY_TOKENS.filter(a => str.includes(a));
+
+  return { key, name, gender, spriteId, catClass, colorless, hp, xp, status, focus, abilities };
+}
+
+function readInt64(dv, offset) {
+  // JS safe integer range: just read lo 32 bits for key values (all < 511)
+  return dv.getInt32(offset, true); // low word sufficient for cat keys
+}
+
+function parsePedigree(bytes) {
+  if (!bytes || bytes.length < 24) return { nodes: [], links: [] };
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+  // Header
+  const sentinel = dv.getInt32(0, true);   // -11
+  const count    = dv.getInt32(8, true);   // num entries
+  const maxKey   = dv.getInt32(16, true);  // max cat key
+
+  // Skip UID section: 24 + maxKey * 8
+  const entriesStart = 24 + maxKey * 8;
+  if (entriesStart >= bytes.length) return { nodes: [], links: [] };
+
+  const nodes = new Map(); // key -> {key}
+  const links = [];
+
+  let offset = entriesStart;
+  const entrySize = 64; // 8 x int64
+
+  while (offset + entrySize <= bytes.length) {
+    // uid1 (8), uid2 (8), cat_key (8), parent1 (8), parent2 (8), flags (8), first_child (8), sibling (8)
+    const catKey  = dv.getInt32(offset + 16, true);
+    const par1    = dv.getInt32(offset + 24, true);
+    const par2    = dv.getInt32(offset + 32, true);
+
+    if (catKey > 0 && catKey <= maxKey) {
+      nodes.set(catKey, { id: catKey });
+      if (par1 > 0) links.push({ source: par1, target: catKey });
+      if (par2 > 0) links.push({ source: par2, target: catKey });
+    } else {
+      // Lost alignment — try to resync
+      break;
+    }
+    offset += entrySize;
+  }
+
+  return { nodes: [...nodes.values()], links };
+}
+
+function parseStorage(bytes) {
+  if (!bytes || bytes.length < 4) return [];
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const count = dv.getUint32(0, true);
+  const items = [];
+  let offset = 4;
+  while (items.length < count && offset < bytes.length) {
+    // Length-prefixed ASCII string
+    const len = bytes[offset];
+    if (len === 0 || offset + 1 + len > bytes.length) break;
+    let name = '';
+    for (let i = 0; i < len; i++) {
+      const c = bytes[offset + 1 + i];
+      if (c >= 32 && c < 127) name += String.fromCharCode(c);
+    }
+    if (name) items.push(name);
+    offset += 1 + len;
+    // Skip padding bytes until next printable char sequence
+    while (offset < bytes.length && (bytes[offset] < 32 || bytes[offset] > 126) && items.length < count) {
+      offset++;
+    }
+  }
+  return items;
+}
+
+// ═══════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════
+
+function renderStatsBar(props) {
+  const get = k => props[k] ?? '?';
+  const chips = [
+    { label: 'Day',      value: get('current_day'),       cls: '' },
+    { label: 'Gold',     value: get('house_gold'),         cls: 'gold' },
+    { label: 'Food',     value: get('house_food'),         cls: '' },
+    { label: 'Complete', value: get('save_file_percent') + '%', cls: '' },
+    { label: 'Adventure',value: get('on_adventure') == 1 ? 'Yes' : 'No', cls: '' },
+  ];
+  document.getElementById('stats-bar').innerHTML = chips.map(c =>
+    `<div class="stat-chip"><span class="label">${c.label}</span><span class="value ${c.cls}">${c.value}</span></div>`
+  ).join('');
+}
+
+function renderZones(props) {
+  const grid = document.getElementById('zones-grid');
+  grid.innerHTML = ZONES.map(z => {
+    const unlocked = props[`mapflag_${z}Unlocked`] == 1;
+    return `<span class="zone-chip ${unlocked ? 'unlocked' : 'locked'}">${z}</span>`;
+  }).join('');
+}
+
+function renderRoster(cats) {
+  const total = cats.length;
+  const male = cats.filter(c => c.gender === 'male').length;
+  const female = cats.filter(c => c.gender === 'female').length;
+  const colorless = cats.filter(c => c.colorless).length;
+  const classed = total - colorless;
+  document.getElementById('roster-stats').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:0.4rem;font-size:0.88rem;">
+      <div style="display:flex;justify-content:space-between;"><span style="font-weight:600;color:var(--color-muted)">Total</span><span style="font-weight:800;">${total}</span></div>
+      <div style="display:flex;justify-content:space-between;"><span style="font-weight:600;color:var(--color-muted)">Male</span><span style="font-weight:800;">${male}</span></div>
+      <div style="display:flex;justify-content:space-between;"><span style="font-weight:600;color:var(--color-muted)">Female</span><span style="font-weight:800;">${female}</span></div>
+      <div style="display:flex;justify-content:space-between;"><span style="font-weight:600;color:var(--color-muted)">Colorless</span><span style="font-weight:800;">${colorless}</span></div>
+      <div style="display:flex;justify-content:space-between;"><span style="font-weight:600;color:var(--color-muted)">Classed</span><span style="font-weight:800;">${classed}</span></div>
+    </div>`;
+}
+
+function renderClassChart(cats) {
+  const counts = {};
+  for (const c of cats) {
+    const k = c.colorless ? 'Colorless' : (c.catClass || 'Unknown');
+    counts[k] = (counts[k] || 0) + 1;
+  }
+  const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]);
+  const max = sorted[0]?.[1] || 1;
+  document.getElementById('class-chart').innerHTML = sorted.map(([label, n]) => `
+    <div class="bar-row">
+      <span class="bar-label">${label}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(n/max*100)}%"></div></div>
+      <span class="bar-count">${n}</span>
+    </div>`).join('');
+}
+
+function renderHpChart(cats) {
+  if (!cats.length) return;
+  const hps = cats.map(c => c.hp).filter(h => h > 0);
+  const min = Math.min(...hps), max = Math.max(...hps);
+  const buckets = 8;
+  const step = Math.ceil((max - min + 1) / buckets);
+  const bins = Array.from({length: buckets}, (_,i) => ({
+    label: `${min + i*step}–${min + (i+1)*step - 1}`,
+    count: 0
+  }));
+  for (const h of hps) {
+    const i = Math.min(Math.floor((h - min) / step), buckets - 1);
+    bins[i].count++;
+  }
+  const maxC = Math.max(...bins.map(b => b.count));
+  document.getElementById('hp-chart').innerHTML = bins.map(b => `
+    <div class="bar-row">
+      <span class="bar-label" style="font-size:0.68rem;width:86px;">${b.label}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(b.count/maxC*100)}%"></div></div>
+      <span class="bar-count">${b.count}</span>
+    </div>`).join('');
+}
+
+function renderStorage(items) {
+  const el = document.getElementById('storage-list');
+  if (!items.length) { el.textContent = 'Empty'; return; }
+  el.innerHTML = items.map(i => `<span class="item-tag">${i}</span>`).join('');
+}
+
+function renderCatTable() {
+  const tbody = document.getElementById('cat-tbody');
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const page = filteredCats.slice(start, start + PAGE_SIZE);
+
+  tbody.innerHTML = page.map(c => {
+    const hpClass = c.hp < 950 ? 'hp-low' : c.hp > 1100 ? 'hp-high' : '';
+    const badge = c.colorless
+      ? `<span class="class-badge colorless">Colorless</span>`
+      : `<span class="class-badge">${c.catClass || '?'}</span>`;
+    return `<tr data-key="${c.key}">
+      <td class="key-col">${c.key}</td>
+      <td class="name-col">${c.name || '—'}</td>
+      <td>${c.gender || '—'}</td>
+      <td>${badge}</td>
+      <td class="hp-col ${hpClass}">${c.hp}</td>
+      <td>${c.xp}</td>
+      <td>${c.focus ? (FOCUS_MAP[c.focus] || c.focus) : '—'}</td>
+      <td>${c.status !== 'none' ? c.status : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  // Expanded row
+  if (expandedKey !== null) {
+    const tr = tbody.querySelector(`tr[data-key="${expandedKey}"]`);
+    if (tr) {
+      const cat = allCats.find(c => c.key === expandedKey);
+      if (cat) {
+        const expTr = document.createElement('tr');
+        expTr.className = 'expanded-row';
+        const abilitiesHtml = cat.abilities.length
+          ? cat.abilities.map(a => `<span class="ability-tag">${a}</span>`).join('')
+          : '<em style="color:var(--color-muted)">No abilities found</em>';
+        expTr.innerHTML = `<td colspan="8">
+          <strong>Abilities:</strong>
+          <div class="abilities-list">${abilitiesHtml}</div>
+        </td>`;
+        tr.after(expTr);
+      }
+    }
+  }
+
+  renderPagination();
+}
+
+function renderPagination() {
+  const total = filteredCats.length;
+  const pages = Math.ceil(total / PAGE_SIZE);
+  const el = document.getElementById('pagination');
+  if (pages <= 1) { el.innerHTML = ''; return; }
+
+  let html = `<button class="page-btn" ${currentPage===1?'disabled':''} data-page="${currentPage-1}">◀</button>`;
+  for (let p = 1; p <= pages; p++) {
+    if (p === 1 || p === pages || Math.abs(p - currentPage) <= 2) {
+      html += `<button class="page-btn ${p===currentPage?'active':''}" data-page="${p}">${p}</button>`;
+    } else if (Math.abs(p - currentPage) === 3) {
+      html += `<span style="color:var(--color-muted);padding:0 4px">…</span>`;
+    }
+  }
+  html += `<button class="page-btn" ${currentPage===pages?'disabled':''} data-page="${currentPage+1}">▶</button>`;
+  el.innerHTML = html;
+}
+
+function applyFilters() {
+  const search = document.getElementById('search-input').value.toLowerCase();
+  const classF = document.getElementById('filter-class').value;
+  const genderF = document.getElementById('filter-gender').value;
+  const colorlessOnly = document.getElementById('toggle-colorless').classList.contains('active');
+  const classedOnly = document.getElementById('toggle-classed').classList.contains('active');
+
+  filteredCats = allCats.filter(c => {
+    if (search && !c.name.toLowerCase().includes(search)) return false;
+    if (classF && c.catClass !== classF) return false;
+    if (genderF && c.gender !== genderF) return false;
+    if (colorlessOnly && !c.colorless) return false;
+    if (classedOnly && c.colorless) return false;
+    return true;
+  });
+
+  // Sort
+  filteredCats.sort((a, b) => {
+    let av = a[sortCol === 'class' ? 'catClass' : sortCol] ?? '';
+    let bv = b[sortCol === 'class' ? 'catClass' : sortCol] ?? '';
+    if (typeof av === 'string') av = av.toLowerCase();
+    if (typeof bv === 'string') bv = bv.toLowerCase();
+    return av < bv ? -sortDir : av > bv ? sortDir : 0;
+  });
+
+  currentPage = 1;
+  expandedKey = null;
+  renderCatTable();
+}
+
+function populateClassFilter() {
+  const sel = document.getElementById('filter-class');
+  const classes = [...new Set(allCats.filter(c => !c.colorless && c.catClass).map(c => c.catClass))].sort();
+  classes.forEach(cls => {
+    const opt = document.createElement('option');
+    opt.value = cls; opt.textContent = cls;
+    sel.appendChild(opt);
+  });
+}
+
+// ═══════════════════════════════════════════════
+// PEDIGREE
+// ═══════════════════════════════════════════════
+
+function renderPedigree() {
+  const wrap = document.getElementById('pedigree-svg-wrap');
+  const svg  = document.getElementById('pedigree-svg');
+  svg.innerHTML = '';
+
+  const W = wrap.clientWidth;
+  const H = wrap.clientHeight;
+
+  // Build a lookup: only nodes that exist in allCats
+  const catMap = new Map(allCats.map(c => [c.key, c]));
+  const validNodeIds = new Set(pedNodes.map(n => n.id));
+
+  // Filter to nodes that have at least one link
+  const linkedIds = new Set();
+  pedLinks.forEach(l => { linkedIds.add(l.source); linkedIds.add(l.target); });
+
+  const nodes = pedNodes.filter(n => linkedIds.has(n.id));
+  const links = pedLinks.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
+
+  if (!nodes.length) {
+    d3.select(svg).append('text')
+      .attr('x', W/2).attr('y', H/2)
+      .attr('text-anchor', 'middle')
+      .attr('font-family', 'Sour Gummy, sans-serif')
+      .attr('font-size', 14).attr('fill', '#8a8780')
+      .text('No pedigree data found');
+    return;
+  }
+
+  const svgSel = d3.select(svg)
+    .attr('viewBox', `0 0 ${W} ${H}`);
+
+  const g = svgSel.append('g');
+
+  // Zoom
+  svgSel.call(d3.zoom().scaleExtent([0.1, 4]).on('zoom', e => g.attr('transform', e.transform)));
+
+  const sim = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).id(d => d.id).distance(40))
+    .force('charge', d3.forceManyBody().strength(-60))
+    .force('center', d3.forceCenter(W/2, H/2))
+    .force('collision', d3.forceCollide(14));
+
+  const link = g.append('g').selectAll('line')
+    .data(links).join('line').attr('class', 'ped-link');
+
+  const node = g.append('g').selectAll('g')
+    .data(nodes).join('g')
+    .attr('class', 'ped-node')
+    .call(d3.drag()
+      .on('start', (e, d) => { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx=d.x; d.fy=d.y; })
+      .on('drag',  (e, d) => { d.fx=e.x; d.fy=e.y; })
+      .on('end',   (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx=null; d.fy=null; })
+    )
+    .on('click', (e, d) => showPedDetail(d.id, e));
+
+  node.append('circle').attr('r', 10);
+  node.append('text').text(d => {
+    const cat = catMap.get(d.id);
+    return cat ? (cat.name ? cat.name.slice(0,6) : `#${d.id}`) : `#${d.id}`;
+  });
+
+  sim.on('tick', () => {
+    link
+      .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+      .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+    node.attr('transform', d => `translate(${d.x},${d.y})`);
+  });
+
+  function showPedDetail(catKey, event) {
+    // Deselect all, select clicked
+    d3.selectAll('.ped-node').classed('selected', false);
+    d3.selectAll('.ped-node').filter(d => d.id === catKey).classed('selected', true);
+
+    const cat = catMap.get(catKey);
+    document.getElementById('pd-name').textContent = cat ? (cat.name || `Cat #${catKey}`) : `Cat #${catKey}`;
+    document.getElementById('pd-class').textContent = cat ? (cat.colorless ? 'Colorless' : (cat.catClass || '?')) : '?';
+    document.getElementById('pd-hp').textContent = cat ? cat.hp : '?';
+    document.getElementById('pd-xp').textContent = cat ? cat.xp : '?';
+    document.getElementById('pd-gender').textContent = cat ? (cat.gender || '?') : '?';
+    document.getElementById('pd-focus').textContent = cat ? (cat.focus ? (FOCUS_MAP[cat.focus] || cat.focus) : '—') : '—';
+    document.getElementById('pd-abilities').innerHTML = cat && cat.abilities.length
+      ? cat.abilities.map(a => `<span class="ability-tag">${a}</span>`).join('')
+      : '<em style="color:var(--color-muted)">—</em>';
+    document.getElementById('ped-detail').style.display = 'block';
+  }
+}
+
+// ═══════════════════════════════════════════════
+// MAIN LOAD
+// ═══════════════════════════════════════════════
+
+async function loadSave(arrayBuffer) {
+  const loading = document.getElementById('loading');
+  loading.style.display = 'flex';
+
+  try {
+    document.getElementById('loading-msg').textContent = 'Loading sql.js…';
+    const SQL = await initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/${f}` });
+
+    document.getElementById('loading-msg').textContent = 'Opening database…';
+    const db = new SQL.Database(new Uint8Array(arrayBuffer));
+
+    // Properties
+    document.getElementById('loading-msg').textContent = 'Reading properties…';
+    const props = {};
+    db.each('SELECT key, data FROM properties', [], row => {
+      props[row.key] = row.data;
+    });
+
+    // Cats
+    document.getElementById('loading-msg').textContent = 'Parsing cats…';
+    allCats = [];
+    db.each('SELECT key, data FROM cats', [], row => {
+      if (row.data) {
+        try {
+          allCats.push(parseCat(row.key, row.data));
+        } catch(e) { /* skip malformed */ }
+      }
+    });
+
+    // Storage inventory
+    let storageItems = [];
+    db.each("SELECT data FROM files WHERE key='inventory_storage'", [], row => {
+      if (row.data) storageItems = parseStorage(row.data);
+    });
+
+    // Pedigree
+    document.getElementById('loading-msg').textContent = 'Parsing pedigree…';
+    db.each("SELECT data FROM files WHERE key='pedigree'", [], row => {
+      if (row.data) {
+        const result = parsePedigree(row.data);
+        pedNodes = result.nodes;
+        pedLinks = result.links;
+      }
+    });
+
+    db.close();
+
+    // Render
+    document.getElementById('loading-msg').textContent = 'Rendering…';
+    filteredCats = [...allCats];
+    populateClassFilter();
+    renderStatsBar(props);
+    renderZones(props);
+    renderRoster(allCats);
+    renderClassChart(allCats);
+    renderHpChart(allCats);
+    renderStorage(storageItems);
+    applyFilters();
+    renderPedigree();
+
+    // Show app
+    document.getElementById('hero').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+
+  } catch(err) {
+    document.getElementById('load-error').style.display = 'block';
+    document.getElementById('load-error').textContent = 'Error: ' + err.message;
+    console.error(err);
+  } finally {
+    loading.style.display = 'none';
+  }
+}
+
+// ═══════════════════════════════════════════════
+// EVENT LISTENERS
+// ═══════════════════════════════════════════════
+
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) readFile(file);
+});
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) readFile(fileInput.files[0]);
+});
+
+function readFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => loadSave(e.target.result);
+  reader.readAsArrayBuffer(file);
+}
+
+// Table sort
+document.getElementById('cat-table').querySelector('thead').addEventListener('click', e => {
+  const th = e.target.closest('th');
+  if (!th) return;
+  const col = th.dataset.col;
+  if (!col) return;
+  if (sortCol === col) sortDir *= -1;
+  else { sortCol = col; sortDir = 1; }
+  document.querySelectorAll('thead th').forEach(h => h.classList.remove('sort-asc','sort-desc'));
+  th.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
+  applyFilters();
+});
+
+// Table row expand
+document.getElementById('cat-tbody').addEventListener('click', e => {
+  const tr = e.target.closest('tr[data-key]');
+  if (!tr) return;
+  const key = parseInt(tr.dataset.key);
+  expandedKey = expandedKey === key ? null : key;
+  renderCatTable();
+});
+
+// Filters
+document.getElementById('search-input').addEventListener('input', applyFilters);
+document.getElementById('filter-class').addEventListener('change', applyFilters);
+document.getElementById('filter-gender').addEventListener('change', applyFilters);
+
+['toggle-colorless','toggle-classed'].forEach(id => {
+  document.getElementById(id).addEventListener('click', function() {
+    this.classList.toggle('active');
+    // Mutually exclusive
+    if (id === 'toggle-colorless' && this.classList.contains('active'))
+      document.getElementById('toggle-classed').classList.remove('active');
+    if (id === 'toggle-classed' && this.classList.contains('active'))
+      document.getElementById('toggle-colorless').classList.remove('active');
+    applyFilters();
+  });
+});
+
+// Pagination
+document.getElementById('pagination').addEventListener('click', e => {
+  const btn = e.target.closest('.page-btn');
+  if (!btn || btn.disabled) return;
+  currentPage = parseInt(btn.dataset.page);
+  expandedKey = null;
+  renderCatTable();
+  document.getElementById('cat-browser').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+// Pedigree close
+document.getElementById('ped-close').addEventListener('click', () => {
+  document.getElementById('ped-detail').style.display = 'none';
+  d3.selectAll('.ped-node').classed('selected', false);
+});
+</script>
+</body>
+</html>
