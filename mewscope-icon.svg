@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+
+  <!-- Outer card shadow (hard, no blur) -->
+  <rect x="8" y="8" width="248" height="248" rx="28" ry="28" fill="#1a1714"/>
+
+  <!-- Paper background -->
+  <rect x="2" y="2" width="248" height="248" rx="28" ry="28" fill="#f2efea" stroke="#1a1714" stroke-width="6"/>
+
+  <!-- === MAGNIFYING GLASS === -->
+
+  <!-- Handle shadow -->
+  <line x1="159" y1="159" x2="208" y2="212" stroke="#1a1714" stroke-width="22" stroke-linecap="round" transform="translate(5,5)" opacity="0.25"/>
+
+  <!-- Handle -->
+  <line x1="159" y1="159" x2="208" y2="212" stroke="#1a1714" stroke-width="22" stroke-linecap="round"/>
+
+  <!-- Lens shadow -->
+  <circle cx="103" cy="103" r="66" fill="#1a1714" transform="translate(5,5)" opacity="0.25"/>
+
+  <!-- Lens fill -->
+  <circle cx="103" cy="103" r="66" fill="#f8f6f2"/>
+
+  <!-- Lens ring -->
+  <circle cx="103" cy="103" r="66" fill="none" stroke="#1a1714" stroke-width="10"/>
+
+  <!-- === CAT FACE (inside lens) === -->
+
+  <!-- Left ear (behind head) -->
+  <polygon points="70,75 56,42 92,68" fill="#f8f6f2" stroke="#1a1714" stroke-width="5" stroke-linejoin="round"/>
+  <!-- Right ear (behind head) -->
+  <polygon points="136,75 150,42 114,68" fill="#f8f6f2" stroke="#1a1714" stroke-width="5" stroke-linejoin="round"/>
+
+  <!-- Head -->
+  <ellipse cx="103" cy="112" rx="42" ry="38" fill="#f8f6f2" stroke="#1a1714" stroke-width="5"/>
+
+  <!-- Left eye -->
+  <ellipse cx="87" cy="107" rx="7" ry="9" fill="#1a1714"/>
+  <!-- Right eye -->
+  <ellipse cx="119" cy="107" rx="7" ry="9" fill="#1a1714"/>
+  <!-- Eye shines -->
+  <circle cx="89" cy="104" r="2.5" fill="white"/>
+  <circle cx="121" cy="104" r="2.5" fill="white"/>
+
+  <!-- Nose -->
+  <polygon points="103,118 98,124 108,124" fill="#1a1714"/>
+
+  <!-- Mouth -->
+  <path d="M98,124 Q95,130 90,128" stroke="#1a1714" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M108,124 Q111,130 116,128" stroke="#1a1714" stroke-width="3" fill="none" stroke-linecap="round"/>
+
+  <!-- Whiskers left -->
+  <line x1="57" y1="114" x2="82" y2="117" stroke="#1a1714" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="57" y1="123" x2="83" y2="121" stroke="#1a1714" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Whiskers right -->
+  <line x1="124" y1="117" x2="149" y2="114" stroke="#1a1714" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="123" y1="121" x2="149" y2="123" stroke="#1a1714" stroke-width="2.5" stroke-linecap="round"/>
+
+</svg>

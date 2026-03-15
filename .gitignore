@@ -1,0 +1,9 @@
+# Local project notes — not for distribution
+.claude/
+
+# Mewgenics save files — contain personal Steam ID and game state
+*.sav
+
+# Environment / secrets
+.env
+.env.*
