@@ -735,7 +735,6 @@ function parsePedigree(bytes) {
   const count    = dv.getInt32(8, true);   // number of entries
   const maxKey   = dv.getInt32(16, true);  // max cat key ever generated
 
-  console.log('[pedigree] sentinel:', sentinel, 'count:', count, 'maxKey:', maxKey, 'bytes:', bytes.length);
 
   const nodes = new Map();
   const links = [];
