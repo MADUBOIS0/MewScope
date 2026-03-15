@@ -571,7 +571,7 @@
       <table id="cat-table">
         <thead>
           <tr>
-            <th data-col="key">#</th>
+            <th data-col="key" class="sort-desc">#</th>
             <th data-col="name">Name</th>
             <th data-col="gender">Gender</th>
             <th data-col="class">Class</th>
@@ -665,7 +665,7 @@ const PAGE_SIZE = 50;
 let allCats = [];
 let filteredCats = [];
 let sortCol = 'key';
-let sortDir = 1;
+let sortDir = -1;
 let currentPage = 1;
 let expandedKey = null;
 let pedNodes = [];
