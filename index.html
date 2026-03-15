@@ -730,39 +730,55 @@ function parsePedigree(bytes) {
   if (!bytes || bytes.length < 24) return { nodes: [], links: [] };
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 
-  // Header
+  // Header — all values stored as int64 (little-endian); use lo-32 (keys < 65535)
   const sentinel = dv.getInt32(0, true);   // -11
-  const count    = dv.getInt32(8, true);   // num entries
-  const maxKey   = dv.getInt32(16, true);  // max cat key
+  const count    = dv.getInt32(8, true);   // number of entries
+  const maxKey   = dv.getInt32(16, true);  // max cat key ever generated
 
-  // Skip UID section: 24 + maxKey * 8
-  const entriesStart = 24 + maxKey * 8;
-  if (entriesStart >= bytes.length) return { nodes: [], links: [] };
+  console.log('[pedigree] sentinel:', sentinel, 'count:', count, 'maxKey:', maxKey, 'bytes:', bytes.length);
 
-  const nodes = new Map(); // key -> {key}
+  const nodes = new Map();
   const links = [];
+  const entrySize = 64; // 8 × int64: uid1, uid2, cat_key, par1, par2, flags, child, sibling
 
-  let offset = entriesStart;
-  const entrySize = 64; // 8 x int64
+  // Try candidate start offsets for the entries block.
+  // The UID section at offset 24 is maxKey 8-byte slots, but we also try +8 (off-by-one)
+  // and skipping UIDs entirely, picking whichever yields the most valid entries.
+  const candidates = [
+    24 + maxKey * 8,
+    24 + (maxKey + 1) * 8,
+    24 + count * 8,
+  ];
 
-  while (offset + entrySize <= bytes.length) {
-    // uid1 (8), uid2 (8), cat_key (8), parent1 (8), parent2 (8), flags (8), first_child (8), sibling (8)
-    const catKey  = dv.getInt32(offset + 16, true);
-    const par1    = dv.getInt32(offset + 24, true);
-    const par2    = dv.getInt32(offset + 32, true);
+  let bestResult = { nodes: new Map(), links: [] };
 
-    if (catKey > 0 && catKey <= maxKey) {
-      nodes.set(catKey, { id: catKey });
-      if (par1 > 0) links.push({ source: par1, target: catKey });
-      if (par2 > 0) links.push({ source: par2, target: catKey });
-    } else {
-      // Lost alignment — try to resync
-      break;
+  for (const start of candidates) {
+    if (start < 0 || start + entrySize > bytes.length) continue;
+
+    const nMap = new Map();
+    const lArr = [];
+    let offset = start;
+    let valid = 0;
+
+    while (offset + entrySize <= bytes.length) {
+      const catKey = dv.getInt32(offset + 16, true);
+      const par1   = dv.getInt32(offset + 24, true);
+      const par2   = dv.getInt32(offset + 32, true);
+
+      if (catKey > 0 && catKey <= maxKey * 3) {
+        nMap.set(catKey, { id: catKey });
+        if (par1 > 0 && par1 <= maxKey * 3) lArr.push({ source: par1, target: catKey });
+        if (par2 > 0 && par2 <= maxKey * 3) lArr.push({ source: par2, target: catKey });
+        valid++;
+      }
+      offset += entrySize;
     }
-    offset += entrySize;
+
+    console.log(`[pedigree] start=${start}: ${valid} entries, ${nMap.size} nodes, ${lArr.length} links`);
+    if (nMap.size > bestResult.nodes.size) bestResult = { nodes: nMap, links: lArr };
   }
 
-  return { nodes: [...nodes.values()], links };
+  return { nodes: [...bestResult.nodes.values()], links: bestResult.links };
 }
 
 function parseStorage(bytes) {
@@ -1134,11 +1150,12 @@ async function loadSave(arrayBuffer) {
     renderHpChart(allCats);
     renderStorage(storageItems);
     applyFilters();
-    renderPedigree();
 
-    // Show app
+    // Show app before pedigree — renderPedigree needs real clientWidth/clientHeight
     document.getElementById('hero').style.display = 'none';
     document.getElementById('app').style.display = 'block';
+
+    renderPedigree();
 
   } catch(err) {
     document.getElementById('load-error').style.display = 'block';
