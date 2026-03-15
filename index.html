@@ -670,6 +670,8 @@ let currentPage = 1;
 let expandedKey = null;
 let pedNodes = [];
 let pedLinks = [];
+let selectPedNode = null;    // set by renderPedigree, called externally
+let resetPedSelection = null; // set by renderPedigree, called externally
 
 // ═══════════════════════════════════════════════
 // BINARY PARSING
@@ -812,7 +814,7 @@ function renderStatsBar(props) {
   const get = k => props[k] ?? '?';
   const chips = [
     { label: 'Day',      value: get('current_day'),       cls: '' },
-    { label: 'Gold',     value: get('house_gold'),         cls: 'gold' },
+    { label: 'Coins',    value: get('house_gold'),         cls: 'gold' },
     { label: 'Food',     value: get('house_food'),         cls: '' },
     { label: 'Complete', value: get('save_file_percent') + '%', cls: '' },
     { label: 'Adventure',value: get('on_adventure') == 1 ? 'Yes' : 'No', cls: '' },
@@ -1035,11 +1037,45 @@ function renderPedigree() {
   // Zoom
   svgSel.call(d3.zoom().scaleExtent([0.1, 4]).on('zoom', e => g.attr('transform', e.transform)));
 
+  // Count children per node (link source = parent, target = child)
+  const childCounts = new Map();
+  links.forEach(l => {
+    const src = typeof l.source === 'object' ? l.source.id : l.source;
+    childCounts.set(src, (childCounts.get(src) || 0) + 1);
+  });
+
+  // Name abbreviation: try "First L." then hard truncate with "."
+  function abbreviateName(fullName, maxChars) {
+    if (fullName.length <= maxChars) return fullName;
+    const parts = fullName.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      const abbr = `${parts[0]} ${parts[parts.length - 1][0]}.`;
+      if (abbr.length <= maxChars) return abbr;
+    }
+    return maxChars >= 2 ? fullName.slice(0, maxChars - 1) + '.' : fullName[0] + '.';
+  }
+
+  // Radius helpers — 9px Sour Gummy in SVG ≈ 4.5px/char, 6px total padding
+  const CHAR_W = 4.5, PAD = 6;
+  const maxCharsFor = r => Math.max(1, Math.floor((2 * r - PAD) / CHAR_W));
+  const rForLabel   = label => Math.ceil((label.length * CHAR_W + PAD) / 2);
+
+  // Pre-compute per-node display properties
+  nodes.forEach(d => {
+    const cat = catMap.get(d.id);
+    d._fullName   = cat ? (cat.name || `#${d.id}`) : `#${d.id}`;
+    d._baseR      = Math.min(45, 16 + (childCounts.get(d.id) || 0) * 4);
+    d._shortLabel = abbreviateName(d._fullName, maxCharsFor(d._baseR));
+    d._fullR      = Math.max(d._baseR, rForLabel(d._fullName) + 2);
+    d._r          = d._baseR;
+    d._label      = d._shortLabel;
+  });
+
   const sim = d3.forceSimulation(nodes)
-    .force('link', d3.forceLink(links).id(d => d.id).distance(40))
-    .force('charge', d3.forceManyBody().strength(-60))
+    .force('link', d3.forceLink(links).id(d => d.id).distance(55))
+    .force('charge', d3.forceManyBody().strength(-80))
     .force('center', d3.forceCenter(W/2, H/2))
-    .force('collision', d3.forceCollide(14));
+    .force('collision', d3.forceCollide(d => d._r + 3));
 
   const link = g.append('g').selectAll('line')
     .data(links).join('line').attr('class', 'ped-link');
@@ -1054,11 +1090,8 @@ function renderPedigree() {
     )
     .on('click', (e, d) => showPedDetail(d.id, e));
 
-  node.append('circle').attr('r', 10);
-  node.append('text').text(d => {
-    const cat = catMap.get(d.id);
-    return cat ? (cat.name ? cat.name.slice(0,6) : `#${d.id}`) : `#${d.id}`;
-  });
+  node.append('circle').attr('r', d => d._r);
+  node.append('text').text(d => d._label);
 
   sim.on('tick', () => {
     link
@@ -1067,10 +1100,27 @@ function renderPedigree() {
     node.attr('transform', d => `translate(${d.x},${d.y})`);
   });
 
+  function collapseSelection() {
+    node.each(d => { d._r = d._baseR; d._label = d._shortLabel; });
+    node.select('circle').attr('r', d => d._r);
+    node.select('text').text(d => d._label);
+    node.classed('selected', false);
+    sim.alpha(0.2).restart();
+  }
+
+  selectPedNode    = (catKey) => showPedDetail(catKey, null);
+  resetPedSelection = collapseSelection;
+
   function showPedDetail(catKey, event) {
-    // Deselect all, select clicked
-    d3.selectAll('.ped-node').classed('selected', false);
-    d3.selectAll('.ped-node').filter(d => d.id === catKey).classed('selected', true);
+    // Collapse any previously expanded node, then expand the new one
+    collapseSelection();
+
+    node.filter(d => d.id === catKey)
+      .each(d => { d._r = d._fullR; d._label = d._fullName; })
+      .classed('selected', true)
+      .select('circle').attr('r', d => d._r);
+    node.filter(d => d.id === catKey).select('text').text(d => d._label);
+    sim.alpha(0.2).restart();
 
     const cat = catMap.get(catKey);
     document.getElementById('pd-name').textContent = cat ? (cat.name || `Cat #${catKey}`) : `Cat #${catKey}`;
@@ -1114,7 +1164,8 @@ async function loadSave(arrayBuffer) {
     db.each('SELECT key, data FROM cats', [], row => {
       if (row.data) {
         try {
-          allCats.push(parseCat(row.key, row.data));
+          const cat = parseCat(row.key, row.data);
+          if (cat.name) allCats.push(cat); // skip nameless placeholder cats
         } catch(e) { /* skip malformed */ }
       }
     });
@@ -1206,13 +1257,19 @@ document.getElementById('cat-table').querySelector('thead').addEventListener('cl
   applyFilters();
 });
 
-// Table row expand
+// Table row expand + pedigree selection
 document.getElementById('cat-tbody').addEventListener('click', e => {
   const tr = e.target.closest('tr[data-key]');
   if (!tr) return;
   const key = parseInt(tr.dataset.key);
   expandedKey = expandedKey === key ? null : key;
   renderCatTable();
+
+  // Select this cat in the pedigree tree
+  if (selectPedNode) {
+    selectPedNode(key);
+    document.getElementById('pedigree').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 });
 
 // Filters
@@ -1245,7 +1302,7 @@ document.getElementById('pagination').addEventListener('click', e => {
 // Pedigree close
 document.getElementById('ped-close').addEventListener('click', () => {
   document.getElementById('ped-detail').style.display = 'none';
-  d3.selectAll('.ped-node').classed('selected', false);
+  if (resetPedSelection) resetPedSelection();
 });
 </script>
 </body>
