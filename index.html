@@ -440,6 +440,24 @@
     fill: none;
   }
 
+  .ped-bubble-name {
+    font-family: 'Sour Gummy', sans-serif;
+    font-size: 11px;
+    font-weight: 800;
+    fill: var(--color-paper);
+    pointer-events: none;
+  }
+  .ped-bubble-count {
+    font-family: 'Sour Gummy', sans-serif;
+    font-size: 8px;
+    font-weight: 600;
+    fill: var(--color-paper);
+    opacity: 0.7;
+    pointer-events: none;
+  }
+  .ped-bubble:hover circle { opacity: 0.82; }
+  .ped-back-btn:hover rect  { opacity: 0.80; }
+
   /* Floating detail card */
   #ped-detail {
     position: absolute;
@@ -1008,132 +1026,207 @@ function renderPedigree() {
   const W = wrap.clientWidth;
   const H = wrap.clientHeight;
 
-  // Build a lookup: only nodes that exist in allCats
-  const catMap = new Map(allCats.map(c => [c.key, c]));
-  const validNodeIds = new Set(pedNodes.map(n => n.id));
-
-  // Filter to nodes that have at least one link
-  const linkedIds = new Set();
-  pedLinks.forEach(l => { linkedIds.add(l.source); linkedIds.add(l.target); });
-
-  const nodes = pedNodes.filter(n => linkedIds.has(n.id));
-  const links = pedLinks.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
+  const catMap   = new Map(allCats.map(c => [c.key, c]));
+  const validIds = new Set(pedNodes.map(n => n.id));
+  const links    = pedLinks.filter(l => validIds.has(l.source) && validIds.has(l.target));
+  // Only include nodes that have at least one valid link (drops cats whose only links are to phantom parents)
+  const validLinkedIds = new Set();
+  links.forEach(l => { validLinkedIds.add(l.source); validLinkedIds.add(l.target); });
+  const nodes = pedNodes.filter(n => validLinkedIds.has(n.id));
 
   if (!nodes.length) {
     d3.select(svg).append('text')
-      .attr('x', W/2).attr('y', H/2)
-      .attr('text-anchor', 'middle')
+      .attr('x', W/2).attr('y', H/2).attr('text-anchor', 'middle')
       .attr('font-family', 'Sour Gummy, sans-serif')
       .attr('font-size', 14).attr('fill', '#8a8780')
       .text('No pedigree data found');
     return;
   }
 
-  const svgSel = d3.select(svg)
-    .attr('viewBox', `0 0 ${W} ${H}`);
-
-  const g = svgSel.append('g');
-
-  // Zoom
-  svgSel.call(d3.zoom().scaleExtent([0.1, 4]).on('zoom', e => g.attr('transform', e.transform)));
-
-  // Count children per node (link source = parent, target = child)
-  const childCounts = new Map();
-  links.forEach(l => {
-    const src = typeof l.source === 'object' ? l.source.id : l.source;
-    childCounts.set(src, (childCounts.get(src) || 0) + 1);
-  });
-
-  // Name abbreviation: try "First L." then hard truncate with "."
-  function abbreviateName(fullName, maxChars) {
-    if (fullName.length <= maxChars) return fullName;
-    const parts = fullName.trim().split(/\s+/);
-    if (parts.length >= 2) {
-      const abbr = `${parts[0]} ${parts[parts.length - 1][0]}.`;
-      if (abbr.length <= maxChars) return abbr;
-    }
-    return maxChars >= 2 ? fullName.slice(0, maxChars - 1) + '.' : fullName[0] + '.';
-  }
-
-  // Radius helpers — 9px Sour Gummy in SVG ≈ 4.5px/char, 6px total padding
+  // ── HELPERS ──
   const CHAR_W = 4.5, PAD = 6;
   const maxCharsFor = r => Math.max(1, Math.floor((2 * r - PAD) / CHAR_W));
-  const rForLabel   = label => Math.ceil((label.length * CHAR_W + PAD) / 2);
-
-  // Pre-compute per-node display properties
-  nodes.forEach(d => {
-    const cat = catMap.get(d.id);
-    d._fullName   = cat ? (cat.name || `#${d.id}`) : `#${d.id}`;
-    d._baseR      = Math.min(45, 16 + (childCounts.get(d.id) || 0) * 4);
-    d._shortLabel = abbreviateName(d._fullName, maxCharsFor(d._baseR));
-    d._fullR      = Math.max(d._baseR, rForLabel(d._fullName) + 2);
-    d._r          = d._baseR;
-    d._label      = d._shortLabel;
-  });
-
-  const sim = d3.forceSimulation(nodes)
-    .force('link', d3.forceLink(links).id(d => d.id).distance(55))
-    .force('charge', d3.forceManyBody().strength(-80))
-    .force('center', d3.forceCenter(W/2, H/2))
-    .force('collision', d3.forceCollide(d => d._r + 3));
-
-  const link = g.append('g').selectAll('line')
-    .data(links).join('line').attr('class', 'ped-link');
-
-  const node = g.append('g').selectAll('g')
-    .data(nodes).join('g')
-    .attr('class', 'ped-node')
-    .call(d3.drag()
-      .on('start', (e, d) => { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx=d.x; d.fy=d.y; })
-      .on('drag',  (e, d) => { d.fx=e.x; d.fy=e.y; })
-      .on('end',   (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx=null; d.fy=null; })
-    )
-    .on('click', (e, d) => showPedDetail(d.id, e));
-
-  node.append('circle').attr('r', d => d._r);
-  node.append('text').text(d => d._label);
-
-  sim.on('tick', () => {
-    link
-      .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
-      .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
-    node.attr('transform', d => `translate(${d.x},${d.y})`);
-  });
-
-  function collapseSelection() {
-    node.each(d => { d._r = d._baseR; d._label = d._shortLabel; });
-    node.select('circle').attr('r', d => d._r);
-    node.select('text').text(d => d._label);
-    node.classed('selected', false);
-    sim.alpha(0.2).restart();
+  function abbreviateName(name, max) {
+    if (name.length <= max) return name;
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      const a = `${parts[0]} ${parts[parts.length - 1][0]}.`;
+      if (a.length <= max) return a;
+    }
+    return max >= 2 ? name.slice(0, max - 1) + '.' : name[0] + '.';
+  }
+  function catName(id) {
+    const c = catMap.get(id);
+    return c ? (c.name || `#${id}`) : `#${id}`;
   }
 
-  selectPedNode    = (catKey) => showPedDetail(catKey, null);
-  resetPedSelection = collapseSelection;
+  // ── CHILD COUNTS (source = parent) ──
+  const childCounts = new Map();
+  links.forEach(l => childCounts.set(l.source, (childCounts.get(l.source) || 0) + 1));
 
-  function showPedDetail(catKey, event) {
-    // Collapse any previously expanded node, then expand the new one
-    collapseSelection();
+  // ── CONNECTED COMPONENTS (undirected BFS) ──
+  const adj = new Map(nodes.map(n => [n.id, []]));
+  links.forEach(l => { adj.get(l.source)?.push(l.target); adj.get(l.target)?.push(l.source); });
+  const visited = new Set();
+  const components = [];
+  nodes.forEach(n => {
+    if (visited.has(n.id)) return;
+    const comp = [], queue = [n.id];
+    visited.add(n.id);
+    while (queue.length) {
+      const id = queue.shift();
+      comp.push(id);
+      (adj.get(id) || []).forEach(nb => { if (!visited.has(nb)) { visited.add(nb); queue.push(nb); } });
+    }
+    components.push(comp);
+  });
 
-    node.filter(d => d.id === catKey)
-      .each(d => { d._r = d._fullR; d._label = d._fullName; })
-      .classed('selected', true)
-      .select('circle').attr('r', d => d._r);
-    node.filter(d => d.id === catKey).select('text').text(d => d._label);
-    sim.alpha(0.2).restart();
-
-    const cat = catMap.get(catKey);
-    document.getElementById('pd-name').textContent = cat ? (cat.name || `Cat #${catKey}`) : `Cat #${catKey}`;
-    document.getElementById('pd-class').textContent = cat ? (cat.colorless ? 'Colorless' : (cat.catClass || '?')) : '?';
-    document.getElementById('pd-hp').textContent = cat ? cat.hp : '?';
-    document.getElementById('pd-xp').textContent = cat ? cat.xp : '?';
-    document.getElementById('pd-gender').textContent = cat ? (cat.gender || '?') : '?';
-    document.getElementById('pd-focus').textContent = cat ? (cat.focus ? (FOCUS_MAP[cat.focus] || cat.focus) : '—') : '—';
+  // ── DETAIL PANEL ──
+  function showDetail(id) {
+    const cat = catMap.get(id);
+    document.getElementById('pd-name').textContent    = cat ? (cat.name || `Cat #${id}`) : `Cat #${id}`;
+    document.getElementById('pd-class').textContent   = cat ? (cat.colorless ? 'Colorless' : (cat.catClass || '?')) : '?';
+    document.getElementById('pd-hp').textContent      = cat ? cat.hp : '?';
+    document.getElementById('pd-xp').textContent      = cat ? cat.xp : '?';
+    document.getElementById('pd-gender').textContent  = cat ? (cat.gender || '?') : '?';
+    document.getElementById('pd-focus').textContent   = cat ? (cat.focus ? (FOCUS_MAP[cat.focus] || cat.focus) : '—') : '—';
     document.getElementById('pd-abilities').innerHTML = cat && cat.abilities.length
       ? cat.abilities.map(a => `<span class="ability-tag">${a}</span>`).join('')
       : '<em style="color:var(--color-muted)">—</em>';
     document.getElementById('ped-detail').style.display = 'block';
   }
+
+  // ── COLLAPSED VIEW: one bubble per component ──
+  function renderCollapsed() {
+    svg.innerHTML = '';
+    document.getElementById('ped-detail').style.display = 'none';
+    const svgSel   = d3.select(svg).attr('viewBox', `0 0 ${W} ${H}`);
+    const BUBBLE_R = 55;
+    const step     = W / (components.length + 1);
+
+    selectPedNode = (catKey) => {
+      const comp = components.find(c => c.includes(catKey));
+      if (comp) renderTree(comp, catKey);
+    };
+    resetPedSelection = () => { document.getElementById('ped-detail').style.display = 'none'; };
+
+    components.forEach((comp, i) => {
+      let topId = comp[0], topCount = -1;
+      comp.forEach(id => { const c = childCounts.get(id) || 0; if (c > topCount) { topCount = c; topId = id; } });
+
+      const bg = svgSel.append('g')
+        .attr('class', 'ped-bubble')
+        .attr('transform', `translate(${step * (i + 1)},${H / 2})`)
+        .style('cursor', 'pointer')
+        .on('click', () => renderTree(comp));
+
+      bg.append('circle').attr('r', BUBBLE_R)
+        .attr('fill', 'var(--color-ink)').attr('stroke', 'var(--color-ink)').attr('stroke-width', 3);
+
+      bg.append('text').attr('class', 'ped-bubble-name')
+        .attr('text-anchor', 'middle').attr('dominant-baseline', 'middle')
+        .attr('y', comp.length > 1 ? -8 : 0)
+        .text(abbreviateName(catName(topId), maxCharsFor(BUBBLE_R)));
+
+      if (comp.length > 1) {
+        bg.append('text').attr('class', 'ped-bubble-count')
+          .attr('text-anchor', 'middle').attr('dominant-baseline', 'middle')
+          .attr('y', 10).text(`${comp.length} cats`);
+      }
+    });
+  }
+
+  // ── TREE VIEW ──
+  function renderTree(compIds, autoSelectKey = null) {
+    svg.innerHTML = '';
+    document.getElementById('ped-detail').style.display = 'none';
+
+    const compSet   = new Set(compIds);
+    const compLinks = links.filter(l => compSet.has(l.source) && compSet.has(l.target));
+    const hasParent = new Set(compLinks.map(l => l.target));
+    const roots     = compIds.filter(id => !hasParent.has(id));
+
+    const childrenMap = new Map(compIds.map(id => [id, []]));
+    compLinks.forEach(l => childrenMap.get(l.source)?.push(l.target));
+
+    const globalSeen = new Set();
+    function buildNode(id) {
+      if (globalSeen.has(id)) return null;
+      globalSeen.add(id);
+      const children = (childrenMap.get(id) || []).map(buildNode).filter(Boolean);
+      return { id, name: catName(id), children };
+    }
+    const treeData = roots.length === 1
+      ? buildNode(roots[0])
+      : { id: -1, name: '', children: roots.map(buildNode).filter(Boolean) };
+
+    const svgSel    = d3.select(svg).attr('viewBox', `0 0 ${W} ${H}`);
+    const container = svgSel.append('g');
+    svgSel.call(d3.zoom().scaleExtent([0.1, 4]).on('zoom', e => container.attr('transform', e.transform)));
+
+    const NODE_R = 22;
+    const root   = d3.hierarchy(treeData);
+    d3.tree().nodeSize([54, 110])(root);
+
+    let minX = Infinity, maxX = -Infinity;
+    root.descendants().forEach(d => { minX = Math.min(minX, d.x); maxX = Math.max(maxX, d.x); });
+    const yOff = (H - (maxX - minX)) / 2 - minX;
+    const xOff = NODE_R + 40;
+
+    // Links (cubic bezier, left-to-right)
+    container.append('g').selectAll('path')
+      .data(root.links().filter(l => l.source.data.id !== -1))
+      .join('path').attr('class', 'ped-link')
+      .attr('d', ({ source: s, target: t }) => {
+        const sx = s.y + xOff, sy = s.x + yOff, tx = t.y + xOff, ty = t.x + yOff, mx = (sx + tx) / 2;
+        return `M${sx},${sy} C${mx},${sy} ${mx},${ty} ${tx},${ty}`;
+      });
+
+    // Nodes
+    let selectedG = null;
+    const nodeG = container.append('g').selectAll('g')
+      .data(root.descendants().filter(d => d.data.id !== -1))
+      .join('g').attr('class', 'ped-node')
+      .attr('transform', d => `translate(${d.y + xOff},${d.x + yOff})`)
+      .style('cursor', 'pointer')
+      .on('click', (e, d) => {
+        if (selectedG) selectedG.classed('selected', false);
+        selectedG = d3.select(e.currentTarget).classed('selected', true);
+        showDetail(d.data.id);
+      });
+
+    nodeG.append('circle').attr('r', NODE_R);
+    nodeG.append('text')
+      .attr('text-anchor', 'middle').attr('dominant-baseline', 'central')
+      .text(d => abbreviateName(d.data.name, maxCharsFor(NODE_R)));
+
+    // Module-level pointers for external callers
+    selectPedNode = (catKey) => {
+      if (selectedG) selectedG.classed('selected', false);
+      selectedG = nodeG.filter(d => d.data.id === catKey).classed('selected', true);
+      if (!selectedG.empty()) showDetail(catKey);
+    };
+    resetPedSelection = () => {
+      if (selectedG) { selectedG.classed('selected', false); selectedG = null; }
+      document.getElementById('ped-detail').style.display = 'none';
+    };
+
+    if (autoSelectKey !== null) selectPedNode(autoSelectKey);
+
+    // Back button (fixed — outside zoom container)
+    svgSel.append('g').attr('class', 'ped-back-btn')
+      .attr('transform', 'translate(12, 12)').style('cursor', 'pointer')
+      .on('click', renderCollapsed)
+      .call(g => {
+        g.append('rect').attr('width', 66).attr('height', 28).attr('rx', 6).attr('fill', 'var(--color-ink)');
+        g.append('text').attr('x', 33).attr('y', 14)
+          .attr('text-anchor', 'middle').attr('dominant-baseline', 'central')
+          .attr('font-family', 'Sour Gummy, sans-serif').attr('font-size', '10px').attr('font-weight', '700')
+          .attr('fill', 'var(--color-paper)').text('← Back');
+      });
+  }
+
+  renderCollapsed();
 }
 
 // ═══════════════════════════════════════════════
