@@ -21,7 +21,7 @@
 ## Usage
 
 1. Open the app in your browser
-2. Click **Upload Save File** and select your `.sav` file
+2. Drop your `.sav` file onto the upload zone, or click it to browse
 
 Save files are located at:
 
@@ -37,8 +37,8 @@ Files are named `steamcampaign01.sav`, `steamcampaign02.sav`, etc.
 |------|---------|
 | [sql.js](https://sql.js.org) | In-browser SQLite (WebAssembly) |
 | `DataView` | Little-endian binary blob parsing |
-| [D3.js](https://d3js.org) | Pedigree tree / force graph |
-| Vanilla JS / React | UI |
+| [D3.js](https://d3js.org) | Pedigree hierarchical tree layout |
+| Vanilla JS | UI |
 
 ## Privacy
 

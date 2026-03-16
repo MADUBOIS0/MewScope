@@ -730,20 +730,25 @@ function parseCat(key, bytes) {
   // Stat focus — look within ~80 bytes after gender match
   let focus = '';
   const genderIdx = gm ? str.indexOf(gm[0]) : -1;
-  const window = genderIdx >= 0 ? str.slice(genderIdx, genderIdx + 80) : str;
+  const focusWindow = genderIdx >= 0 ? str.slice(genderIdx, genderIdx + 80) : str;
   for (const tok of Object.keys(FOCUS_MAP)) {
-    if (window.includes(tok)) { focus = tok; break; }
+    if (focusWindow.includes(tok)) { focus = tok; break; }
   }
 
-  // Abilities
-  const abilities = ABILITY_TOKENS.filter(a => str.includes(a));
+  // Abilities — use boundary check so e.g. 'Bolt' doesn't match inside 'HealBolt'
+  const isLetter = c => (c >= 65 && c <= 90) || (c >= 97 && c <= 122);
+  const abilities = ABILITY_TOKENS.filter(a => {
+    let idx = str.indexOf(a);
+    while (idx !== -1) {
+      const pre  = idx > 0 ? str.charCodeAt(idx - 1) : 0;
+      const post = idx + a.length < str.length ? str.charCodeAt(idx + a.length) : 0;
+      if (!isLetter(pre) && !isLetter(post)) return true;
+      idx = str.indexOf(a, idx + 1);
+    }
+    return false;
+  });
 
   return { key, name, gender, spriteId, catClass, colorless, hp, xp, status, focus, abilities };
-}
-
-function readInt64(dv, offset) {
-  // JS safe integer range: just read lo 32 bits for key values (all < 511)
-  return dv.getInt32(offset, true); // low word sufficient for cat keys
 }
 
 function parsePedigree(bytes) {
@@ -1101,8 +1106,12 @@ function renderPedigree() {
     svg.innerHTML = '';
     document.getElementById('ped-detail').style.display = 'none';
     const svgSel   = d3.select(svg).attr('viewBox', `0 0 ${W} ${H}`);
-    const BUBBLE_R = 55;
-    const step     = W / (components.length + 1);
+    // Grid layout — prevents overlap when there are many family components
+    const cols   = Math.min(components.length, Math.max(1, Math.floor(W / 130)));
+    const rows   = Math.ceil(components.length / cols);
+    const BUBBLE_R = Math.max(16, Math.min(55,
+      Math.floor(Math.min(W / (cols + 1), H / (rows + 1)) / 2) - 8
+    ));
 
     selectPedNode = (catKey) => {
       const comp = components.find(c => c.includes(catKey));
@@ -1114,9 +1123,14 @@ function renderPedigree() {
       let topId = comp[0], topCount = -1;
       comp.forEach(id => { const c = childCounts.get(id) || 0; if (c > topCount) { topCount = c; topId = id; } });
 
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const cx  = (W / (cols + 1)) * (col + 1);
+      const cy  = (H / (rows + 1)) * (row + 1);
+
       const bg = svgSel.append('g')
         .attr('class', 'ped-bubble')
-        .attr('transform', `translate(${step * (i + 1)},${H / 2})`)
+        .attr('transform', `translate(${cx},${cy})`)
         .style('cursor', 'pointer')
         .on('click', () => renderTree(comp));
 
